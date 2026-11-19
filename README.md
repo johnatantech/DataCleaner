@@ -17,7 +17,8 @@ OpenPyXL
 Streamlit
 Tkinter
 Matplotlib
-Como executar
+
+Como executar:
 pip install -r requirements.txt
 
 python src/main.py
