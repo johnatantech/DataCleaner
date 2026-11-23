@@ -1,8 +1,12 @@
 # DataCleaner Pro
 
-Ferramenta em **Python + Pandas** para limpar, padronizar e validar cadastros de clientes (pessoas e empresas) vindos de planilhas Excel ou CSV. Separa automaticamente os registros válidos dos inválidos, indicando o motivo de cada problema e a linha de origem, com interface gráfica em **Tkinter** e painel em **Streamlit**.
+Ferramenta em **Python + Pandas** para limpar, padronizar e validar cadastros de clientes (pessoas e empresas) vindos de planilhas Excel ou CSV. Separa automaticamente os registros válidos dos inválidos, indicando o motivo de cada problema e a linha de origem.
 
-<!-- Adicione um print do painel: ![Painel](docs/painel.png) -->
+**Demo:** <!-- cole aqui o link do Streamlit Community Cloud, ex.: https://datacleaner-johnatantech.streamlit.app -->
+
+![DataCleaner](docs/painel.png)
+
+Disponível de três formas: **app web** em Streamlit (upload, diagnóstico e download), **interface desktop** em Tkinter e **linha de comando**.
 
 ## Problema
 
@@ -21,7 +25,29 @@ O arquivo `saida/dados_tratados.xlsx` tem duas abas:
 
 As abas saem com cabeçalho destacado, filtro, primeira linha congelada e largura de colunas ajustada.
 
-Também são gerados `saida/relatorio_processamento.xlsx` (totais e contagem por motivo) e `logs/processamento.log`.
+Na linha de comando e na interface desktop também são gerados `saida/relatorio_processamento.xlsx` (totais e contagem por motivo) e `logs/processamento.log`. No app web, o relatório vai como terceira aba do Excel baixado.
+
+## App web
+
+- Upload de `.xlsx` ou `.csv` (até 10 MB), ou teste com o arquivo de exemplo em um clique
+- Barra de triagem com a proporção de válidos e inválidos, indicadores e gráfico dos motivos de recusa
+- Tabelas de válidos e inválidos navegáveis, e download do Excel tratado
+- Campos obrigatórios escolhidos na barra lateral
+- Processamento **em memória**: nada é gravado no servidor
+
+## Telas
+
+**Aba Válidos** do Excel tratado:
+
+![Aba Válidos](docs/excel_validos.png)
+
+**Aba Inválidos**, com a linha de origem e todos os motivos de cada registro:
+
+![Aba Inválidos](docs/excel_invalidos.png)
+
+**Interface desktop:**
+
+![Interface](docs/interface.png)
 
 ## Validações
 
@@ -38,7 +64,7 @@ Também são gerados `saida/relatorio_processamento.xlsx` (totais e contagem por
 | Data de nascimento | Data existente, não futura, idade até 120 anos | `dd/mm/aaaa` |
 | Duplicidade | Linhas idênticas são removidas; o mesmo CPF/CNPJ em registros diferentes vai para inválidos | |
 
-Todas as colunas são opcionais, exceto as definidas em `CAMPOS_OBRIGATORIOS`. Os cabeçalhos são reconhecidos com variações: `E-mail`, `Celular`, `CPF/CNPJ`, `Data de Nascimento`, `Razão Social` etc. (lista em `config.py`).
+Todas as colunas são opcionais, exceto as definidas em `CAMPOS_OBRIGATORIOS` (ou escolhidas na barra lateral do app web). CSVs em UTF-8 ou Latin-1, separados por vírgula ou ponto e vírgula, são lidos automaticamente. Os cabeçalhos são reconhecidos com variações: `E-mail`, `Celular`, `CPF/CNPJ`, `Data de Nascimento`, `Razão Social` etc. (lista em `config.py`).
 
 ## Antes e depois
 
@@ -55,18 +81,19 @@ Com o arquivo de exemplo (`exemplos/clientes_exemplo.csv`, dados fictícios):
 ## Arquitetura
 
 ```
- planilha (.xlsx / .csv)
-        │
-        ▼
- main.py (CLI)  ou  interface.py (Tkinter)
-        │
-        ▼
+ streamlit_app.py (web)    main.py (CLI)    interface.py (Tkinter)
+          │                      │                  │
+          │ upload em memória    └──── arquivo ─────┘
+          ▼                               ▼
  DataCleaner  ◄── validacoes.py (regras)  ◄── config.py (aliases, obrigatórios, caminhos)
-        │
-        ├──► saida/dados_tratados.xlsx  [Válidos | Inválidos] ──► dashboard/app.py
-        ├──► saida/relatorio_processamento.xlsx
-        └──► logs/processamento.log
+          │                               │
+          ▼                               ▼
+ download do Excel              saida/dados_tratados.xlsx  [Válidos | Inválidos]
+ [Válidos | Inválidos | Relatório]   saida/relatorio_processamento.xlsx
+                                 logs/processamento.log
 ```
+
+O núcleo (`tratamento.py` e `validacoes.py`) é o mesmo para as três interfaces: a lógica de validação não conhece Streamlit nem Tkinter.
 
 ## Decisões técnicas
 
@@ -76,6 +103,7 @@ Com o arquivo de exemplo (`exemplos/clientes_exemplo.csv`, dados fictícios):
 - **CNPJ alfanumérico:** o cálculo usa o valor ASCII menos 48 para cada caractere, regra da Receita Federal que funciona igual para CNPJs numéricos antigos e para os novos com letras. Os testes usam os exemplos oficiais.
 - **Duplicados após a padronização:** `joão silva ` e `João Silva` só são reconhecidos como iguais depois de tratados. CPF/CNPJ repetido em cadastros diferentes indica conflito e vai para revisão.
 - **Regras declarativas:** cada campo é uma entrada no dicionário `REGRAS` (validar, formatar, motivo). Adicionar uma validação nova é escrever duas funções e uma linha.
+- **App web sem disco:** o upload é lido de um `BytesIO` e o Excel é gerado em memória. O resultado fica em cache por conteúdo do arquivo, então trocar os campos obrigatórios ou de aba não reprocessa à toa.
 - **Dados fora do Git:** `entrada/`, `saida/` e `logs/` estão no `.gitignore`.
 
 ## Tecnologias
@@ -103,29 +131,38 @@ pip install -r requirements.txt
 
 | Modo | Comando |
 |---|---|
+| App web | `streamlit run streamlit_app.py` |
 | Linha de comando | `python main.py exemplos/clientes_exemplo.csv` |
-| Interface gráfica | `python interface.py` |
-| Painel | `streamlit run dashboard/app.py` |
+| Interface desktop | `python interface.py` |
 | Testes | `pip install -r requirements-dev.txt` e depois `pytest` |
 
 Sem argumento, a linha de comando procura `entrada/clientes.xlsx`.
+
+## Publicar no Streamlit Community Cloud
+
+1. Acesse [share.streamlit.io](https://share.streamlit.io) e entre com a conta do GitHub
+2. Clique em **Create app**, escolha o repositório `johnatantech/DataCleaner`, branch `main` e arquivo `streamlit_app.py`
+3. Em **Advanced settings**, selecione Python 3.12 ou superior e clique em **Deploy**
+
+O Streamlit instala o `requirements.txt` e aplica o tema de `.streamlit/config.toml`.
 
 ## Estrutura
 
 ```
 DataCleaner/
+├── streamlit_app.py         # app web: upload, diagnóstico e download
 ├── main.py                  # linha de comando e fluxo de processamento
-├── interface.py             # interface gráfica Tkinter
+├── interface.py             # interface desktop Tkinter
 ├── tratamento.py            # classe DataCleaner e tabela de regras
 ├── validacoes.py            # validação e formatação de cada campo
 ├── relatorios.py            # gravação das abas e do relatório
 ├── config.py                # aliases de colunas, obrigatórios, caminhos
-├── dashboard/app.py         # painel Streamlit
+├── .streamlit/config.toml   # tema e limite de upload do app web
 ├── exemplos/
 │   └── clientes_exemplo.csv # dados fictícios para teste
 ├── tests/
 │   ├── test_validacoes.py   # regras de cada campo
-│   └── test_tratamento.py   # fluxo completo com o arquivo de exemplo
+│   └── test_tratamento.py   # fluxo completo, leitura em memória e obrigatórios
 ├── requirements.txt
 ├── requirements-dev.txt
 └── .gitignore
@@ -140,7 +177,6 @@ DataCleaner/
 ## Próximos passos
 
 - Consulta de CEP via API (ViaCEP) para confirmar existência e completar endereço
-- Permitir escolher os campos obrigatórios pela interface
 - Integração contínua com GitHub Actions rodando os testes a cada push
 
 ## Autor

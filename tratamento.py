@@ -36,32 +36,48 @@ class DataCleaner:
 
     # ------------------------------------------------------------ leitura
 
-    def carregar_arquivo(self, arquivo):
-        caminho = Path(arquivo)
+    def carregar_arquivo(self, arquivo, nome=None):
+        """Lê um caminho ou um arquivo em memória (ex.: upload do Streamlit)."""
+        em_memoria = not isinstance(arquivo, (str, Path))
+        nome = nome or getattr(arquivo, "name", None) or str(arquivo)
 
-        if not caminho.exists():
-            raise FileNotFoundError(f"Arquivo não encontrado: {caminho}")
+        if not em_memoria and not Path(arquivo).exists():
+            raise FileNotFoundError(f"Arquivo não encontrado: {arquivo}")
 
-        extensao = caminho.suffix.lower()
+        extensao = Path(nome).suffix.lower()
         if extensao not in config.EXTENSOES_SUPORTADAS:
             raise ValueError(
-                f"Formato não suportado: {extensao}. "
+                f"Formato não suportado: {extensao or 'sem extensão'}. "
                 f"Use {', '.join(sorted(config.EXTENSOES_SUPORTADAS))}."
             )
 
         # Tudo como texto: evita perda de zeros em CPF, CEP e telefone
         if extensao == ".csv":
-            df = pd.read_csv(caminho, dtype=str, encoding="utf-8-sig", sep=None, engine="python")
+            df = self._ler_csv(arquivo, em_memoria)
         else:
-            df = pd.read_excel(caminho, dtype=str)
+            df = pd.read_excel(arquivo, dtype=str)
 
-        logger.info("Arquivo carregado: %s (%d linhas)", caminho.name, len(df))
+        logger.info("Arquivo carregado: %s (%d linhas)", Path(nome).name, len(df))
         return df
+
+    @staticmethod
+    def _ler_csv(arquivo, em_memoria):
+        # CSV exportado pelo Excel em português costuma vir em Latin-1 com ";"
+        for encoding in ("utf-8-sig", "latin-1"):
+            try:
+                if em_memoria:
+                    arquivo.seek(0)
+                return pd.read_csv(arquivo, dtype=str, encoding=encoding, sep=None, engine="python")
+            except UnicodeDecodeError:
+                continue
+        raise ValueError("Não foi possível ler o CSV. Salve-o em UTF-8 e tente de novo.")
 
     # ------------------------------------------------------------ tratamento
 
-    def tratar(self, df):
+    def tratar(self, df, campos_obrigatorios=None):
         """Retorna (validos, invalidos)."""
+        if campos_obrigatorios is None:
+            campos_obrigatorios = config.CAMPOS_OBRIGATORIOS
         df = self._padronizar_colunas(df.copy())
         registros_iniciais = len(df)
 
@@ -87,12 +103,14 @@ class DataCleaner:
                     df.at[idx, coluna] = str(valor).strip()
                     motivos[idx].append(motivo)
 
-        for coluna in config.CAMPOS_OBRIGATORIOS:
+        rotulos = {"nome": "Nome", "email": "E-mail", "telefone": "Telefone", "documento": "CPF/CNPJ",
+                   "cpf": "CPF", "cnpj": "CNPJ", "cep": "CEP", "uf": "UF", "data_nascimento": "Data de nascimento"}
+        for coluna in campos_obrigatorios:
             if coluna not in df.columns:
                 logger.warning("Coluna obrigatória '%s' não encontrada.", coluna)
                 continue
             for idx in df.index[df[coluna].isna()]:
-                motivos[idx].append(f"{coluna.capitalize()} ausente")
+                motivos[idx].append(f"{rotulos.get(coluna, coluna)} ausente")
 
         # Duplicados removidos DEPOIS da padronização
         colunas_dados = [c for c in df.columns if c != "linha_origem"]

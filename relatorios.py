@@ -26,20 +26,28 @@ def _formatar_aba(planilha, cor_cabecalho):
         planilha.column_dimensions[coluna[0].column_letter].width = min(largura + 3, 60)
 
 
-def salvar_base(validos, invalidos, destino=config.ARQUIVO_TRATADO):
+def tabela_relatorio(relatorio):
+    return pd.DataFrame(
+        [(ROTULOS.get(chave, chave), valor) for chave, valor in relatorio.items()],
+        columns=["Indicador", "Valor"],
+    )
+
+
+def salvar_base(validos, invalidos, destino=config.ARQUIVO_TRATADO, relatorio=None):
+    """Grava em um caminho ou em memória (BytesIO). Com relatorio, inclui uma terceira aba."""
     with pd.ExcelWriter(destino, engine="openpyxl") as writer:
         validos.to_excel(writer, sheet_name=config.ABA_VALIDOS, index=False)
         invalidos.to_excel(writer, sheet_name=config.ABA_INVALIDOS, index=False)
         _formatar_aba(writer.sheets[config.ABA_VALIDOS], "2E7D32")
         _formatar_aba(writer.sheets[config.ABA_INVALIDOS], "C62828")
+        if relatorio is not None:
+            tabela_relatorio(relatorio).to_excel(writer, sheet_name="Relatório", index=False)
+            _formatar_aba(writer.sheets["Relatório"], "37474F")
     return destino
 
 
 def gerar_relatorio(relatorio, destino=config.ARQUIVO_RELATORIO):
-    resultado = pd.DataFrame(
-        [(ROTULOS.get(chave, chave), valor) for chave, valor in relatorio.items()],
-        columns=["Indicador", "Valor"],
-    )
+    resultado = tabela_relatorio(relatorio)
     with pd.ExcelWriter(destino, engine="openpyxl") as writer:
         resultado.to_excel(writer, sheet_name="Relatório", index=False)
         _formatar_aba(writer.sheets["Relatório"], "37474F")

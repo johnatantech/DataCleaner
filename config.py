@@ -46,3 +46,15 @@ VALOR_PADRAO_NULO = "Não informado"
 VALORES_NULOS = {}  # padrão específico por coluna, se necessário
 
 IDADE_MAXIMA = 120
+
+# App web (Streamlit)
+LIMITE_LINHAS_APP = 50_000
+CAMPOS_DISPONIVEIS = {
+    "nome": "Nome",
+    "documento": "CPF/CNPJ",
+    "email": "E-mail",
+    "telefone": "Telefone",
+    "cep": "CEP",
+    "uf": "UF",
+    "data_nascimento": "Data de nascimento",
+}
