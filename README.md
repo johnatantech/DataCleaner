@@ -2,7 +2,9 @@
 
 Ferramenta em **Python + Pandas** para limpar, padronizar e validar cadastros de clientes (pessoas e empresas) vindos de planilhas Excel ou CSV. Separa automaticamente os registros válidos dos inválidos, indicando o motivo de cada problema e a linha de origem.
 
-**Demo:** <!-- cole aqui o link do Streamlit Community Cloud, ex.: https://datacleaner-johnatantech.streamlit.app -->
+**Demo:** [datacleaner-johnatan.streamlit.app](https://datacleaner-johnatan.streamlit.app)
+
+> Se o app estiver em modo de espera, clique em **"Yes, get this app back up!"** e aguarde cerca de 1 minuto.
 
 ![DataCleaner](docs/painel.png)
 
